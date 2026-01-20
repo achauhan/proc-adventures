@@ -1,0 +1,193 @@
+/***********************************************************************************
+* errorhdlngsqlca.pc - This sample program explains how to implement ErrorHandling *
+*                      using SQLCA                                                 *
+*                                                                                  *
+************************************************************************************/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR host_username[21];
+  short host_username_i;
+
+  VARCHAR host_password[21];
+  short host_password_i;
+
+  int host_empno;
+  short host_empno_i;
+
+  VARCHAR host_ename[11];
+  short host_ename_i;
+
+  VARCHAR host_job[10];
+  short host_job_i;
+
+  int host_mgr;
+  short host_mgr_i;
+
+  VARCHAR host_hiredate[23];
+  short host_hiredate_i;	
+
+  double host_sal;
+  short host_sal_i;
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL DECLARE DB_SECURE DATABASE;
+EXEC SQL INCLUDE sqlca;
+
+int main()
+{
+  int input_empno = 0;
+  
+  char c_ename[11];
+  char c_job[10];
+  int  i_mgr;
+  char c_hiredate[23];
+  double d_sal;
+
+  int lsqlerrmsg;
+  char sqlerrmsg[71];
+  
+  /*****************************************************************************
+   * Initialize the host variables                                             *
+   *****************************************************************************/
+  memset(&host_username,'\0',sizeof(host_username));
+  host_username_i = -1;
+
+  memset(&host_password,'\0',sizeof(host_password));
+  host_password_i = -1;
+
+  host_empno = 0;
+  host_empno_i = -1;
+
+  memset(&host_ename,'\0',sizeof(host_ename));
+  host_ename_i = -1;
+
+  memset(&host_job,'\0',sizeof(host_job));
+  host_job_i = -1;
+
+  host_mgr = 0;
+  host_mgr_i = -1;
+
+  memset(&host_hiredate,'\0',sizeof(host_hiredate));
+  host_hiredate_i = -1;
+
+  host_sal = 0;
+  host_sal_i = -1;
+
+  printf("This is a sample program on Error Handling operation ... \n");
+   
+  /*****************************************************************************
+   * Copy User Name and Password to connect to Oracle                          *
+   *****************************************************************************/
+  strcpy((char *)host_username.arr,"scott");
+  host_username.len = strlen("scott");
+  host_username_i = 0;
+
+  strcpy((char *)host_password.arr,"tiger");
+  host_password.len = strlen("tiger");
+  host_password_i = 0;
+
+  /* Make conneciton to the DB */
+  EXEC SQL CONNECT :host_username IDENTIFIED BY :host_password AT DB_SECURE;
+  
+  if(sqlca.sqlcode != 0)
+  {
+    printf("The connection to the DB is not successfull \n");
+  }
+  else
+  {
+    printf("Connection is successfull \n");
+  }
+
+  printf("Please provide an employee id:"); 
+  scanf("%d", &input_empno );
+
+  if (input_empno > 0)
+  {
+    host_empno = input_empno;
+    host_empno_i = 0;
+  }
+
+  EXEC SQL AT DB_SECURE SELECT ENAME,
+                                 JOB,
+				 MGR,
+                                 TO_CHAR(HIREDATE,'MM/DD/YYYY HH24:MI:SS'),
+                                 SAL
+       INTO :host_ename:host_ename_i,
+            :host_job:host_job_i,
+            :host_mgr:host_mgr_i,
+            :host_hiredate:host_hiredate_i,
+            :host_sal:host_sal_i
+       FROM EMP
+       WHERE EMPNO = :host_empno:host_empno_i;
+
+   switch(sqlca.sqlcode)
+   {
+      case 0:
+             printf("Select query executed successfully for EMPOYEE ID: %d \n",input_empno);
+             
+             printf("Selected Rows: <%d> \n",sqlca.sqlerrd[2]);
+
+             if (host_ename_i == 0)
+             {
+                strncpy(c_ename,host_ename.arr,host_ename.len);
+                printf("EMPLOYEE NAME: %s \n",c_ename);
+             }
+             
+             if(host_job_i == 0)
+             {
+                strncpy(c_job,host_job.arr,host_job.len);
+                printf("JOB: %s \n",c_job);
+             }
+             
+             if (host_mgr_i == 0)
+             {
+               i_mgr = host_mgr;
+               printf("MANAGER: %d \n",i_mgr);
+             }
+
+             if (host_hiredate_i == 0)
+             {
+                strncpy(c_hiredate,host_hiredate.arr,host_hiredate.len);
+                printf("HIRE DATE: %s \n",c_hiredate);
+             }
+
+             if(host_sal_i == 0)
+             {
+                d_sal = host_sal;
+                printf("SALARY: %0.2f \n",d_sal);
+             }
+
+             break;
+
+      case 1403:
+               printf("No row found for the provided employee id");
+               break;
+
+      default:
+              printf("Selection is haivng some problem. sqlca.sqlcode=<%d> \n",sqlca.sqlcode);
+              
+              lsqlerrmsg = sqlca.sqlerrm.sqlerrml;
+              strncpy(sqlerrmsg, sqlca.sqlerrm.sqlerrmc, lsqlerrmsg);
+              sqlerrmsg[lsqlerrmsg] = '\0';
+              printf("Error description for the transaction=<%s> \n",sqlerrmsg);                           
+   }
+
+
+  /* Closing the DB conneciton */
+  EXEC SQL AT DB_SECURE COMMIT WORK RELEASE;
+
+  if(sqlca.sqlcode != 0)
+  {
+    printf("Connection to the DB did not close successfully \n");
+  }
+  else
+  {
+    printf("Connection to the DB closed successfully \n");
+  }
+
+  return 0;
+}

@@ -1,0 +1,172 @@
+/********************************************************************************
+* cursorarray.pc - This program explains using host array in CURSOR programming *
+*                                                                               *
+*********************************************************************************/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+EXEC SQL BEGIN DECLARE SECTION;
+  VARCHAR host_username[21];
+  short host_username_i;
+
+  VARCHAR host_password[21];
+  short host_password_i;
+
+  VARCHAR host_job[10];
+  short host_job_i;
+
+  struct 
+  {
+    int host_empno[10];
+    char host_ename[10][11];
+    int host_mgr[10];
+    char host_hiredate[10][23];
+    double host_sal[10];
+  } emp_info;
+  
+  struct 
+  {
+    short host_empno_i[10];
+    short host_ename_i[10];
+    short host_mgr_i[10];
+    short host_hiredate_i[10];
+    short host_sal_i[10];
+  } emp_info_ind;
+
+EXEC SQL END DECLARE SECTION;
+
+EXEC SQL INCLUDE sqlca;
+
+
+/* Error handling function. */
+void sql_error();
+
+/* Forward declaration (used before definition in main) */
+void print_records(int row);
+
+/* Oracle runtime helper functions used by this sample */
+void sqlgls(char *stmt, long *stmtl, long *func);
+void sqlglm(unsigned char *msg, int *bufl, int *msgl);
+
+int main()
+{
+  char input_job[10];
+  int num_ret;	
+  
+  printf("This is a sample program to on CURSOR operation ... \n");
+   
+  EXEC SQL WHENEVER SQLERROR do sql_error("Oracle error");
+
+  /*****************************************************************************
+   * Copy User Name and Password to connect to Oracle                          *
+   *****************************************************************************/
+  strcpy((char *)host_username.arr,"scott");
+  host_username.len = strlen("scott");
+  host_username_i = 0;
+
+  strcpy((char *)host_password.arr,"tiger");
+  host_password.len = strlen("tiger"); 
+  host_password_i = 0;
+
+  /* Make conneciton to the DB */
+  EXEC SQL CONNECT :host_username IDENTIFIED BY :host_password;
+  
+  if(sqlca.sqlcode != 0)
+  {
+    printf("The connection to the DB is not successfull \n");
+  }
+  else
+  {
+    printf("Connection is successfull \n");
+  }
+
+  printf("Please provide a JOB to select records:"); 
+  scanf("%s", input_job );
+
+  strcpy(host_job.arr,input_job);
+  host_job.len = strlen(input_job);
+  host_job_i = 0;
+ 
+  /* Declare the cursor */
+  EXEC SQL DECLARE emp_cursor CURSOR FOR
+        SELECT EMPNO, ENAME, MGR, TO_CHAR(HIREDATE,'MM/DD/YYYY HH24:MI:SS'), SAL
+           FROM EMP
+        WHERE JOB = :host_job:host_job_i;
+
+  /* Open the cursor */
+  EXEC SQL OPEN emp_cursor;
+  
+  /* Initialize the number of rows returned */
+  num_ret = 0;
+  
+ /* Exit the for (;;) loop when NO DATA FOUND. */
+  EXEC SQL WHENEVER NOT FOUND DO break;
+  
+  for(;;)
+  {
+     EXEC SQL FETCH emp_cursor 
+                 INTO :emp_info INDICATOR :emp_info_ind;
+
+     print_records(sqlca.sqlerrd[2] - num_ret);
+     num_ret = sqlca.sqlerrd[2];        /* Set the row return number. */ 
+  }
+  
+  /* Print any remaining rows from last fetch */
+  if ((sqlca.sqlerrd[2] - num_ret) > 0)
+    print_records(sqlca.sqlerrd[2] - num_ret);
+
+
+  /* Close the cursor */
+  EXEC SQL CLOSE emp_cursor;
+
+  /* Closing the DB conneciton */
+  EXEC SQL COMMIT WORK RELEASE;
+
+  if(sqlca.sqlcode != 0)
+  {
+    printf("Connection to the DB did not close successfully \n");
+  }
+  else
+  {
+    printf("Connection to the DB closed successfully \n");
+  }
+
+  return 0;
+}
+
+void print_records(int row)
+{
+  int i;
+
+  for (i = 0; i < row; i++)
+  {
+      printf("------------------------------------------------------- \n");
+      printf("EMPLOYEE NO: %d \n",emp_info.host_empno[i]);
+	  printf("EMPLOYEE NAME: %s \n",emp_info.host_ename[i]);
+	  printf("MANAGER: %d \n",emp_info.host_mgr[i]);
+	  printf("HIRE DATE: %s \n",emp_info.host_hiredate[i]);
+	  printf("SALARY: %0.2f \n",emp_info.host_sal[i]); 
+	  printf("------------------------------------------------------- \n");
+  }
+}
+
+void sql_error(char *msg)
+{
+    long clen, fc;
+    char cbuf[128];
+ 
+    clen = (long) sizeof (cbuf);
+    sqlgls(cbuf, &clen, &fc);
+ 
+    printf("\n%s\n", msg);
+    printf("Statement is: \n%s\n", cbuf);
+    printf("Function code is: %ld\n\n", fc);
+ 
+    sqlglm(cbuf, (int *) &clen, (int *) &clen);
+    printf ("\n%.*s\n", clen, cbuf);
+  
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL ROLLBACK WORK;
+    exit(1);
+}
