@@ -23,7 +23,7 @@ function Assert-Contains([string]$text, [string]$needle, [string]$msg) {
 }
 
 $root = $PSScriptRoot
-$buildScript = Join-Path $root 'build_hello_stub.bat'
+$buildScript = Join-Path $root 'build_hello_noinput.bat'
 $exeNoInput = Join-Path $root 'bin\hello_noinput_stub.exe'
 
 # Traceability inputs
