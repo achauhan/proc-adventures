@@ -1,0 +1,33 @@
+/*
+ * hello_noinput.pc
+ *
+ * Minimal Pro*C demo that requires no user input.
+ *
+ * Notes:
+ * - Uses SQLCHECK=SYNTAX (in your stubbed build scripts) so it can be
+ *   precompiled without connecting to a database.
+ * - When linked against the stub runtime, it will run without Oracle.
+ */
+
+#include <stdio.h>
+#include <string.h>
+
+EXEC SQL INCLUDE sqlca;
+
+int main(void)
+{
+    EXEC SQL BEGIN DECLARE SECTION;
+    char hello[32];
+    EXEC SQL END DECLARE SECTION;
+
+    /* Ensure deterministic output when linked against the stub runtime. */
+    snprintf(hello, sizeof(hello), "%s", "Hello World");
+
+    /* No CONNECT: keep it input-free and stub-friendly. */
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+    EXEC SQL SELECT 'Hello World' INTO :hello FROM DUAL;
+
+    printf("%s\n", hello);
+    return 0;
+}
